@@ -81,6 +81,7 @@ export async function postApiImport(req: Request, res: Response) {
     }
   const created: string[] = [];
   const skipped: string[] = [];
+  const summaryOrders: Order[] = [];
   const insertOrder = db.prepare(`
       INSERT OR IGNORE INTO orders (id, patient_id, parameter, result, reference_range, unit, status, doctor_id, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -172,7 +173,7 @@ export async function postApiImport(req: Request, res: Response) {
                 logEvent("system", "critical_callback_created", orderId, "Critical result requires a staff callback");
               } else {
                 const signedOrder = getOrder(orderId);
-                if (signedOrder) createSummaryForOrder(signedOrder, false);
+                if (signedOrder) summaryOrders.push(signedOrder);
               }
               issueDelivery(orderId, record.mobile);
             }
@@ -181,6 +182,7 @@ export async function postApiImport(req: Request, res: Response) {
       }
     });
   upsert();
+  for (const order of summaryOrders) await createSummaryForOrder(order, false);
   logEvent("frontdesk", "lis_csv_imported", null, `${created.length} imported; ${skipped.length} skipped`);
   res.json({ imported: created, skipped });
 }

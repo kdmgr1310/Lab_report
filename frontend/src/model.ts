@@ -14,6 +14,7 @@ export type Order = {
   created_at: string
   signed_at: string | null
   critical: number
+  summary_source?: 'ai' | 'template' | null
   summary: { en: string | null; te: string | null; hi: string | null } | null
   delivery_status?: string | null
   expires_at?: string | null

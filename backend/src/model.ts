@@ -18,6 +18,7 @@ export type Order = {
   summary_en: string | null;
   summary_te: string | null;
   summary_hi: string | null;
+  summary_source: "ai" | "template" | null;
   pdf_is_original?: number;
   delivery_status?: string | null;
   expires_at?: string | null;

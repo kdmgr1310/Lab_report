@@ -11,7 +11,7 @@ const orderIdFrom = (req: Request) => {
 export async function signOrder(req: Request, res: Response) {
   const staff = req.session.staffUser;
   const actor = staff ? `${staff.role}:${staff.id}` : "staff";
-  const result = signReport(orderIdFrom(req), actor);
+  const result = await signReport(orderIdFrom(req), actor);
   if (result.kind === "not_found") return res.status(404).json({ error: "Order not found." });
   if (result.kind === "already_signed") return res.status(409).json({ error: "This report is already signed." });
   if (result.kind === "cancelled") return res.status(409).json({ error: "Cancelled reports cannot be signed or delivered." });

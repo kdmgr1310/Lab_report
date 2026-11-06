@@ -37,7 +37,7 @@ export function issueDelivery(orderId: string, mobile: string) {
   return { token, link: `${frontendOrigin}/?share=${encodeURIComponent(token)}`, expiresAt };
 }
 
-export function initializeReportDeliveries() {
+export async function initializeReportDeliveries() {
   const readyOrders = db.prepare(`
     SELECT o.id, p.mobile FROM orders o
     JOIN patients p ON p.id = o.patient_id
@@ -45,7 +45,7 @@ export function initializeReportDeliveries() {
   `).all() as Array<{ id: string; mobile: string }>;
   for (const order of readyOrders) {
     const record = getOrder(order.id);
-    if (record) createSummaryForOrder(record, Boolean(record.critical));
+    if (record) await createSummaryForOrder(record, Boolean(record.critical));
     const existing = db.prepare("SELECT id FROM deliveries WHERE order_id = ? LIMIT 1").get(order.id);
     if (!existing) issueDelivery(order.id, order.mobile);
   }
@@ -69,7 +69,7 @@ type SignResult =
   | { kind: "update_failed" }
   | { kind: "signed"; order: Order; link: string; expiresAt: string; critical: boolean };
 
-export function signReport(orderId: string, actor = "frontdesk"): SignResult {
+export async function signReport(orderId: string, actor = "frontdesk"): Promise<SignResult> {
   const order = getOrder(orderId);
   if (!order) return { kind: "not_found" };
   if (order.status === "ready") return { kind: "already_signed" };
@@ -77,7 +77,7 @@ export function signReport(orderId: string, actor = "frontdesk"): SignResult {
   const result = Number.parseFloat(order.result);
   const critical = Number.isFinite(result) && needsCriticalCallback(order.parameter, result, order.reference_range);
 
-  return db.transaction((): SignResult => {
+  const signedResult = db.transaction((): SignResult => {
     const update = db.prepare("UPDATE orders SET status = 'ready', signed_at = ?, critical = ? WHERE id = ?")
       .run(nowIso(), critical ? 1 : 0, order.id);
     if (update.changes !== 1) return { kind: "update_failed" };
@@ -85,9 +85,6 @@ export function signReport(orderId: string, actor = "frontdesk"): SignResult {
       db.prepare("INSERT OR IGNORE INTO callback_tasks (order_id, status, created_at) VALUES (?, 'open', ?)")
         .run(order.id, nowIso());
       logEvent("system", "critical_callback_created", order.id, "Critical result requires a staff callback");
-    } else {
-      const signedOrder = getOrder(order.id);
-      if (signedOrder) createSummaryForOrder(signedOrder, false);
     }
     const delivery = issueDelivery(order.id, order.mobile);
     logEvent(actor, "report_signed", order.id, critical ? "Critical result; no patient summary generated" : "Report signed and patient link sent");
@@ -101,6 +98,12 @@ export function signReport(orderId: string, actor = "frontdesk"): SignResult {
       critical,
     };
   })();
+  if (signedResult.kind === "signed" && !signedResult.critical) {
+    await createSummaryForOrder(signedResult.order, false);
+    const updatedOrder = getOrder(orderId);
+    if (updatedOrder) signedResult.order = updatedOrder;
+  }
+  return signedResult;
 }
 
 type ResendResult =

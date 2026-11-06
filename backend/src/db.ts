@@ -53,7 +53,8 @@ db.exec(`
     critical INTEGER NOT NULL DEFAULT 0,
     summary_en TEXT,
     summary_te TEXT,
-    summary_hi TEXT
+    summary_hi TEXT,
+    summary_source TEXT
   );
   CREATE TABLE IF NOT EXISTS deliveries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,6 +114,10 @@ if (!staffUserColumns.some((column) => column.name === "doctor_id")) {
 }
 if (!staffUserColumns.some((column) => column.name === "is_demo")) {
   db.exec("ALTER TABLE staff_users ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0");
+}
+const orderColumns = db.pragma("table_info(orders)") as Array<{ name: string }>;
+if (!orderColumns.some((column) => column.name === "summary_source")) {
+  db.exec("ALTER TABLE orders ADD COLUMN summary_source TEXT");
 }
 
 const patientsWithMobile = db.prepare("SELECT id, mobile FROM patients").all() as Array<{ id: number; mobile: string }>;

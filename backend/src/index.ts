@@ -6,7 +6,6 @@ import { db } from "./db.ts";
 import { seedDatabase } from "./seed.ts";
 
 seedDatabase();
-initializeRoutes();
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -42,6 +41,9 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 app.listen(port, () => {
   console.log(`Swasthya API listening on http://localhost:${port}`);
+  void initializeRoutes().catch((error: unknown) => {
+    console.error("Report initialization failed:", error);
+  });
 });
 
 process.on("SIGINT", () => {
